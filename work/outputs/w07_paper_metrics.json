@@ -1,0 +1,10 @@
+{
+  "rows_in_queue": 61795,
+  "overall_decline_rate": 0.3240229792054373,
+  "capture_at_10pct_review": 0.20211756480047946,
+  "capture_at_20pct_review": 0.3466014083803626,
+  "capture_at_30pct_review": 0.4867402487139789,
+  "clients_evaluated": 27,
+  "clients_with_positive_uplift": 23,
+  "median_client_uplift_pp": 23.142057752203982
+}
