@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Applied machine learning research on ranking future search-impression decline risk across unseen clients using client-disjoint validation.">
+  <meta name="author" content="Dania Yasir">
+  <meta name="theme-color" content="#0b3a53">
+  <meta property="og:title" content="Which Pages Should Be Reviewed First?">
+  <meta property="og:description" content="Ranking Future Search-Impression Decline Risk Across Unseen Clients">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="assets/01_validation_performance.png">
+  <title>Which Pages Should Be Reviewed First? — Dania Yasir</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#paper">Skip to paper</a>
+  <div class="reading-progress" aria-hidden="true"><span id="progress-bar"></span></div>
+
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">Applied ML Research · FlyRank ML Internship Capstone</div>
+      <h1>Which Pages Should Be Reviewed First?</h1>
+      <p class="subtitle">Ranking Future Search-Impression Decline Risk Across Unseen Clients</p>
+      <div class="byline">
+        <span><strong>Dania Yasir</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>2026</span>
+      </div>
+      <div class="hero-actions">
+        <a class="button primary" href="https://github.com/Dania-Yasir/flyrak-project" target="_blank" rel="noopener noreferrer">View repository</a>
+        <a class="button secondary" href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/research_paper.md" target="_blank" rel="noopener noreferrer">View manuscript</a>
+      </div>
+      
+<div class="metric-grid" aria-label="Key results">
+  <div class="metric"><span class="metric-value">61,795</span><span class="metric-label">evaluated pages</span></div>
+  <div class="metric"><span class="metric-value">34</span><span class="metric-label">pseudonymized clients</span></div>
+  <div class="metric"><span class="metric-value">74.6%</span><span class="metric-label">client-disjoint P@100</span></div>
+  <div class="metric"><span class="metric-value">+8.4 pp</span><span class="metric-label">vs momentum-only RF</span></div>
+</div>
+
+      <div class="validation-strip">
+        <span class="validation-label">Validation reality check</span>
+        <span class="validation-number">90.0%</span>
+        <span class="validation-text">random-row P@100</span>
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="validation-number strong">74.6%</span>
+        <span class="validation-text">client-disjoint P@100 · primary estimate</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-shell">
+    <aside class="toc" aria-label="Table of contents">
+      <div class="toc-title">On this page</div>
+      <nav id="toc-nav"><a href="#abstract">Abstract</a>
+<a href="#introduction">1. Introduction</a>
+<a href="#related-work-and-evaluation-context">2. Related Work and Evaluation Context</a>
+<a href="#data-and-cohort-construction">3. Data and Cohort Construction</a>
+<a href="#prediction-task-and-label">4. Prediction Task and Label</a>
+<a href="#methodology">5. Methodology</a>
+<a href="#results">6. Results</a>
+<a href="#error-analysis">7. Error Analysis</a>
+<a href="#from-risk-score-to-human-action">8. From Risk Score to Human Action</a>
+<a href="#limitations">9. Limitations</a>
+<a href="#conclusion">10. Conclusion</a>
+<a href="#reproducibility">11. Reproducibility</a>
+<a href="#acknowledgments-and-data-credit">12. Acknowledgments and Data Credit</a>
+<a href="#references">References</a></nav>
+      <div class="toc-links">
+        <a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w06_validation_audit.ipynb" target="_blank" rel="noopener noreferrer">Validation notebook ↗</a>
+        <a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w07_action_playbook.ipynb" target="_blank" rel="noopener noreferrer">Action playbook ↗</a>
+      </div>
+    </aside>
+
+    <main id="paper" class="paper" tabindex="-1">
+      <h2 class="section-heading visually-soft" id="abstract">Abstract</h2>
+<p class="abstract-card">Large content portfolios create a prioritization problem: when analyst capacity is limited, which pages should be reviewed first for possible future search-performance decline? Using the FlyRank ML Internship warehouse, this study evaluates <strong>61,795 pseudonymized pages across 34 clients</strong>, with March 1–15, 2026 used for features and March 16–31 used to define a future-impression-decline proxy. The task is framed as ranking, using a <strong>21-feature Random Forest</strong> and comparing it with both a transparent Week-4 rule and a momentum-only Random Forest under <strong>5-fold client-disjoint validation</strong>. The Full-Signal model achieved <strong>74.6% mean Precision@100 (SD 13.6%)</strong>, compared with <strong>66.2%</strong> for the momentum-only model and <strong>35.2%</strong> for the rule baseline; a random-row diagnostic reached <strong>90.0%</strong>, showing that non-grouped validation was materially optimistic. These results support a <strong>human-in-the-loop review queue</strong> for prioritizing investigation, not automatic content changes, causal claims, or prediction of Google's ranking algorithm.</p>
+<hr/>
+<h2 class="section-heading" id="introduction">1. Introduction</h2>
+<p>Large content portfolios can contain far more pages than an analyst can inspect regularly. In that setting, the useful machine-learning question is not simply whether a page can be classified as declining or not declining. The practical question is <strong>which pages should be reviewed first when review capacity is limited</strong>.</p>
+<p>This study asks:</p>
+<blockquote>
+<p><strong>Can search-performance signals available in the first half of a month help prioritize which content pages should be reviewed first for possible future decline?</strong></p>
+</blockquote>
+<p class="thesis-callout"><strong>Central thesis.</strong> Search-performance signals available before the outcome window can support a useful ranking of future decline risk across unseen clients, but credible evidence depends on client-disjoint evaluation, and the output should be used to prioritize human review rather than trigger automatic content changes.</p>
+<p>The task is therefore framed as a <strong>ranking problem</strong>. Each eligible page receives a risk score, and pages with higher scores are placed earlier in a review queue. The unit of analysis is one pseudonymized content page within one pseudonymized client.</p>
+<p>The intended use is deliberately narrow. The model does not decide whether a page should be rewritten, refreshed, deleted, redirected, or published. It also does not attempt to predict Google's ranking algorithm or establish why a page declined. Its role is decision support:</p>
+<p><strong>Model prioritizes → human investigates → human decides.</strong></p>
+<p>The study contributes three practical elements. First, it tests a ranking formulation that matches limited analyst capacity. Second, it evaluates the model under client-disjoint validation so that pages from the same client do not appear in both training and validation. Third, it converts model risk into a human-review playbook rather than an automatic editing workflow.</p>
+<hr/>
+<h2 class="section-heading" id="related-work-and-evaluation-context">2. Related Work and Evaluation Context</h2>
+<p>This study is an applied ranking project rather than a proposal for a new machine-learning algorithm. The relevant research context is therefore methodological: how to evaluate structured-data models under distribution shift, how to align evaluation with limited review capacity, and how to inspect errors beyond one aggregate score.</p>
+<p>Recent work on tabular learning under temporal shift shows that the training and validation protocol can materially change model selection and measured generalization, making split design part of the research claim rather than a minor implementation detail [1]. Broader tabular distribution-shift benchmarks also show that performance can change when the evaluation distribution differs from the training distribution [2]. These studies do not prescribe the client split used here, but they support the broader principle that evaluation should reflect the shift expected at use time. In this project, that means holding out complete clients rather than relying on random-row cross-validation.</p>
+<p>Work on decision-aware Top-K selection studies settings in which decision makers can act on only a limited number of ranked items [3]. This project does not use that paper's model or objective, but the decision setting is closely related: the practical value of the model depends on whether observed decline cases are concentrated near the top of a queue that a human can realistically review.</p>
+<p>Finally, recent error-profiling work emphasizes examining where models fail and how errors vary across subpopulations, rather than relying only on one overall performance number [4]. That perspective motivates the client-level and error analyses reported here.</p>
+<h2 class="section-heading" id="data-and-cohort-construction">3. Data and Cohort Construction</h2>
+<p>The analysis uses the approved <strong>FlyRank ML Internship warehouse release, build <code>v20260703</code></strong>, accessed through DuckDB and Hugging Face. The main table is <code>fact_content_daily_performance</code>.</p>
+<p>The full warehouse contains approximately <strong>78.8 million daily performance rows</strong>, but the final experiment uses only the <strong>March 2026</strong> partition. After March aggregation, the study starts with <strong>331,437 page-level candidates</strong>. Of these, <strong>68,288</strong> have complete Google Search Console coverage for the March 1–15 feature window, and <strong>61,795</strong> also have complete coverage for the March 16–31 outcome window. The final modeling cohort spans <strong>34 pseudonymized clients</strong>.</p>
+<h3 class="section-heading" id="1-analysis-windows">3.1 Analysis windows</h3>
+<ul>
+<li><strong>Feature window:</strong> March 1–15, 2026</li>
+<li><strong>Outcome window:</strong> March 16–31, 2026</li>
+<li><strong>Final modeling cohort:</strong> 61,795 pages</li>
+<li><strong>Clients:</strong> 34</li>
+<li><strong>Observed decline rate:</strong> 32.4%</li>
+</ul>
+<p>The warehouse size and the modeling cohort should not be conflated. The model is not trained directly on all 78.8 million warehouse rows. Those rows describe the underlying daily-performance warehouse; the final experiment evaluates 61,795 March page-level examples after aggregation and coverage filtering.</p>
+<h3 class="section-heading" id="2-information-boundary-and-exclusions">3.2 Information boundary and exclusions</h3>
+<p>Only information available by the end of March 15 is permitted as model input. The following are excluded from the model feature set:</p>
+<ul>
+<li><code>client_id</code></li>
+<li><code>content_id</code></li>
+<li>future-window impression fields</li>
+<li>future average daily impressions</li>
+<li><code>impression_change_pct</code></li>
+<li><code>is_declining_proxy</code></li>
+<li>any field derived from the outcome window</li>
+</ul>
+<p>Client and content IDs are used only for grouping, joining, and validation. Public outputs use pseudonymized data only and do not include client names, URLs, private queries, or access credentials.</p>
+<p>The coverage filter is a real limitation. Results apply to pages with complete search-data coverage across the required windows and should not automatically be generalized to every page in the warehouse.</p>
+<hr/>
+<h2 class="section-heading" id="prediction-task-and-label">4. Prediction Task and Label</h2>
+<p>The prediction boundary is the end of <strong>March 15, 2026</strong>. Features are computed from March 1–15 only. March 16–31 is hidden from the model and used only to define the evaluation target.</p>
+<p>A page is labeled as a future decline case when its average daily impressions during March 16–31 are more than <strong>20% lower</strong> than its average daily impressions during March 1–15.</p>
+<p>In compact form:</p>
+<p><code>future average daily impressions &lt; 0.80 × first-half average daily impressions</code></p>
+<p>This target is a <strong>future-impression-decline proxy</strong>. It is useful for ranking evaluation, but it is not a universal definition of content quality, content decay, or whether a page needs a refresh. It also does not measure the causal effect of any intervention.</p>
+<hr/>
+<h2 class="section-heading" id="methodology">5. Methodology</h2>
+<h3 class="section-heading" id="1-feature-design">5.1 Feature design</h3>
+<p>The final model uses <strong>21 pre-outcome features</strong> grouped into four categories.</p>
+<table>
+<thead>
+<tr>
+<th>Feature group</th>
+<th style="text-align:right">Count</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Momentum anchors</td>
+<td style="text-align:right">2</td>
+<td>Capture recent impression movement</td>
+</tr>
+<tr>
+<td>Current performance level</td>
+<td style="text-align:right">5</td>
+<td>Represent traffic, clicks, CTR, position, and activity</td>
+</tr>
+<tr>
+<td>Trend shape</td>
+<td style="text-align:right">10</td>
+<td>Capture short-window changes, acceleration, and trajectory</td>
+</tr>
+<tr>
+<td>Client-relative context</td>
+<td style="text-align:right">4</td>
+<td>Compare a page with other pages from the same client</td>
+</tr>
+</tbody>
+</table>
+<p>The two momentum anchors are <code>imp_momentum_pct</code> and <code>imp_momentum_log</code>.</p>
+<p>Current-performance features include first-half impressions, clicks, CTR, average position, and active rate. Trend-shape features include two 5-day impression step changes, acceleration, number of declining steps, recent-vs-prior impression movement, click movement, CTR movement, position movement, activity movement, and position-shape availability. Client-context features are within-client percentiles for traffic level, CTR, position, and recent-vs-prior impression trend.</p>
+<p>All features are computed from pre-outcome information only.</p>
+<h3 class="section-heading" id="2-week-4-rule-baseline">5.2 Week-4 rule baseline</h3>
+<p>The transparent Week-4 baseline prioritizes a page when:</p>
+<ol>
+<li>average first-half search position is <strong>20 or better</strong>; and</li>
+<li>CTR is low relative to pages in the same search-position bucket.</li>
+</ol>
+<p>The position buckets are Top 3, 4–10, 11–20, 21–50, and 50+. Matching pages are ranked by first-half impressions so that more visible opportunities appear earlier.</p>
+<p>The rule was informed by an earlier signal audit. Search volume alone did not show a monotonic relationship with future decline, while low CTR was more informative when interpreted relative to search position, particularly among pages already ranking in the Top 20. This motivated a position-aware baseline rather than a generic low-CTR or high-volume rule.</p>
+<p>The original Week-4 full-queue result was <strong>39.0% Precision@100</strong>. That value is retained only as historical context. For the final model comparison, the same rule is re-evaluated inside the same held-out client folds as the learned models. Under that fair design, the Week-4 baseline achieves <strong>35.2% mean Precision@100 (SD 6.4%)</strong>.</p>
+<h3 class="section-heading" id="3-models">5.3 Models</h3>
+<p>The primary model is a <strong>Random Forest classifier</strong> using the full 21-feature set.</p>
+<p>Final settings:</p>
+<ul>
+<li><code>n_estimators=200</code></li>
+<li><code>max_depth=10</code></li>
+<li><code>min_samples_leaf=25</code></li>
+<li><code>max_features="sqrt"</code></li>
+<li><code>class_weight="balanced_subsample"</code></li>
+<li><code>random_state=42</code></li>
+</ul>
+<p>A second <strong>momentum-only Random Forest</strong> uses only the two momentum anchors. This is a stronger comparison than the simple rule baseline because it tests whether the additional 19 context and trend-shape features add ranking value beyond recent impression movement alone.</p>
+<h3 class="section-heading" id="4-validation-design">5.4 Validation design</h3>
+<p>The final evaluation uses <strong>5-fold client-disjoint grouped validation</strong>. Complete clients are held out from training, so pages from the same client do not appear in both training and validation within a fold.</p>
+<p>This choice follows an important validation finding. The same Full-Signal Random Forest achieved <strong>90.0% mean Precision@100 (SD 1.9%)</strong> under random-row cross-validation, but only <strong>74.6% (SD 13.6%)</strong> under client-disjoint validation. The difference is <strong>15.4 percentage points</strong>.</p>
+<p>On average, about <strong>29.6 clients</strong> appeared on both the training and validation sides of the random-row split. That setting allows the model to benefit from client-specific patterns it has already seen. The lower client-disjoint result is therefore treated as the more credible estimate for the intended cross-client use case.</p>
+<h3 class="section-heading" id="5-evaluation-metric">5.5 Evaluation metric</h3>
+<p>The primary metric is <strong>Precision@100</strong>: the share of actual decline cases among the first 100 pages in the ranked validation queue. It was chosen because the intended use is prioritization under limited review capacity rather than classification of every page in the portfolio. The value of <code>K=100</code> represents a fixed top-of-queue review budget used consistently across the compared methods.</p>
+<h3 class="section-heading" id="6-leakage-audit">5.6 Leakage audit</h3>
+<p>The final 21-feature set was audited against the prediction boundary. The audit found:</p>
+<ul>
+<li>forbidden feature overlap: none</li>
+<li>suspicious future/outcome/target-named features: none</li>
+<li>missing values in final model features: 0</li>
+</ul>
+<p>Client-relative percentile features are also computed from pre-outcome data before filtering pages on future coverage.</p>
+<hr/>
+<h2 class="section-heading" id="results">6. Results</h2>
+<h3 class="section-heading" id="1-honest-model-comparison">6.1 Honest model comparison</h3>
+<p>All primary methods below are evaluated on the same target, the same five client-disjoint folds, and the same <code>Precision@100</code> metric.</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th style="text-align:right">Mean Precision@100</th>
+<th style="text-align:right">SD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Random Forest — Full Signal</td>
+<td style="text-align:right"><strong>74.6%</strong></td>
+<td style="text-align:right">13.6%</td>
+</tr>
+<tr>
+<td>Random Forest — Momentum Only</td>
+<td style="text-align:right"><strong>66.2%</strong></td>
+<td style="text-align:right">12.8%</td>
+</tr>
+<tr>
+<td>Week-4 Rule Baseline</td>
+<td style="text-align:right"><strong>35.2%</strong></td>
+<td style="text-align:right">6.4%</td>
+</tr>
+</tbody>
+</table>
+<p>For context, <strong>32.4%</strong> of eligible pages in the final cohort meet the decline proxy overall. The Full-Signal model therefore concentrates substantially more observed decline cases in its top 100 selections than are present in the eligible population as a whole.</p>
+<p>The full model improves mean Precision@100 by <strong>39.4 percentage points</strong> over the Week-4 rule under the fair same-fold comparison.</p>
+<p>The more demanding comparison is against the momentum-only Random Forest. Here, the full model improves Precision@100 by <strong>8.4 percentage points</strong>. This smaller gap suggests that recent momentum carries a large share of the ranking signal, while the additional trend-shape, traffic, CTR, position, and client-relative features provide useful incremental information.</p>
+<figure class="paper-figure"><a aria-label="Open Figure 1 full size" class="figure-link" href="assets/01_validation_performance.png"><img alt="Final validation performance" decoding="async" loading="lazy" src="assets/01_validation_performance.png"/></a><figcaption><strong>Figure 1. </strong>Client-disjoint validation performance</figcaption></figure>
+<p class="takeaway"><strong>Takeaway:</strong> The full model produced the strongest observed client-disjoint Precision@100. The smaller gap to the momentum-only Random Forest shows that recent momentum is already a strong signal and that the added feature groups provide a smaller, directional improvement.</p>
+<h3 class="section-heading" id="2-what-does-the-ranking-buy-when-review-capacity-is-limited">6.2 What does the ranking buy when review capacity is limited?</h3>
+<p>The final out-of-fold queue contains <strong>61,795 pages</strong>. When review capacity is limited, the model concentrates observed decline cases near the top of the queue:</p>
+<ul>
+<li>reviewing the top <strong>10%</strong> captures <strong>20.1%</strong> of observed decline cases;</li>
+<li>reviewing the top <strong>20%</strong> captures <strong>34.6%</strong>;</li>
+<li>reviewing the top <strong>30%</strong> captures <strong>48.5%</strong>.</li>
+</ul>
+<figure class="paper-figure"><a aria-label="Open Figure 2 full size" class="figure-link" href="assets/02_cumulative_capture_curve.png"><img alt="Cumulative capture curve" decoding="async" loading="lazy" src="assets/02_cumulative_capture_curve.png"/></a><figcaption><strong>Figure 2. </strong>Cumulative capture under limited review budgets</figcaption></figure>
+<p class="takeaway"><strong>Takeaway:</strong> The ranking places a disproportionate share of observed decline cases earlier in the queue, which is the intended operational benefit when analysts cannot review every page.</p>
+<h3 class="section-heading" id="3-client-generalization">6.3 Client generalization</h3>
+<p>Client-disjoint evaluation makes heterogeneity visible. In the final action-playbook summary, <strong>24 of 34 clients</strong> show positive concentration of decline among their high-risk pages. The <strong>median client uplift is +18.1 percentage points</strong>, where uplift is the decline rate among a client's high-risk pages minus that client's overall decline rate.</p>
+<p>A separate <strong>macro-client Precision@10</strong> check shows the same directional ordering while giving each eligible client equal weight: <strong>69.2%</strong> for the Full-Signal Random Forest, <strong>58.8%</strong> for the Momentum-Only Random Forest, and <strong>38.8%</strong> for the Week-4 rule. This metric is reported separately from Precision@100 because it answers a different question and should not be numerically combined with the pooled fold-level estimate.</p>
+<figure class="paper-figure"><a aria-label="Open Figure 3 full size" class="figure-link" href="assets/04_client_generalization.png"><img alt="Client generalization" decoding="async" loading="lazy" src="assets/04_client_generalization.png"/></a><figcaption><strong>Figure 3. </strong>Client-level generalization</figcaption></figure>
+<p class="takeaway"><strong>Takeaway:</strong> Risk concentration is positive for most, but not all, evaluated clients. The result supports decision support rather than a claim of uniform performance.</p>
+<h3 class="section-heading" id="4-risk-separation">6.4 Risk separation</h3>
+<p>The observed decline rate increases substantially across model-risk levels. The lowest-risk decile has an observed decline rate of approximately <strong>9.1%</strong>, compared with <strong>32.4%</strong> for the overall cohort and <strong>65.1%</strong> for the highest-risk decile.</p>
+<figure class="paper-figure"><a aria-label="Open Figure 4 full size" class="figure-link" href="assets/03_risk_decile_outcomes.png"><img alt="Risk decile outcomes" decoding="async" loading="lazy" src="assets/03_risk_decile_outcomes.png"/></a><figcaption><strong>Figure 4. </strong>Observed outcomes across risk deciles</figcaption></figure>
+<p class="takeaway"><strong>Takeaway:</strong> Higher model scores correspond to a much denser concentration of observed future-decline cases, without implying that the score identifies the cause of decline.</p>
+<hr/>
+<h2 class="section-heading" id="error-analysis">7. Error Analysis</h2>
+<p>A ranking metric alone does not explain where the model fails. Qualitative out-of-fold error analysis from model development helps define the boundary of the prediction problem.</p>
+<h3 class="section-heading" id="1-high-ranked-false-positives">7.1 High-ranked false positives</h3>
+<p>Many high-ranked false positives already showed strong decline-like patterns by March 15, including large negative impression momentum, repeated declining 5-day steps, or worsening search position. They looked risky at the prediction boundary but did not cross the later -20% decline threshold.</p>
+<p>Possible explanations include temporary volatility, partial recovery during the outcome window, or a warning pattern that did not persist long enough to satisfy the label.</p>
+<h3 class="section-heading" id="2-low-ranked-true-declines">7.2 Low-ranked true declines</h3>
+<p>Some missed decline cases showed flat or positive first-half momentum, no clear sequence of declining steps, and sometimes improving search position before the outcome window.</p>
+<p>These cases are structurally difficult. A later reversal is hard to rank correctly when little warning is visible in the permitted feature window.</p>
+<p>Feature importance is used only as a model-behavior sanity check. It should not be interpreted as evidence that any feature causes future decline.</p>
+<hr/>
+<h2 class="section-heading" id="from-risk-score-to-human-action">8. From Risk Score to Human Action</h2>
+<p>The final model output is converted into a ranked human-review queue. The operating policy uses within-fold risk percentile:</p>
+<ul>
+<li><strong>Risk percentile ≥ 0.80:</strong> active human review</li>
+<li><strong>0.50 ≤ risk percentile &lt; 0.80:</strong> watchlist</li>
+<li><strong>Risk percentile &lt; 0.50:</strong> monitor</li>
+</ul>
+<p>For high-risk pages, observable pre-outcome signals determine the recommended review type.</p>
+<table>
+<thead>
+<tr>
+<th>Observed pattern</th>
+<th>Recommended human review</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sustained decline pattern</td>
+<td><code>CONTENT_REFRESH_REVIEW</code></td>
+</tr>
+<tr>
+<td>Ranking slippage</td>
+<td><code>SERP_AND_INTENT_REVIEW</code></td>
+</tr>
+<tr>
+<td>Visible page with relatively low CTR</td>
+<td><code>TITLE_META_CTR_REVIEW</code></td>
+</tr>
+<tr>
+<td>Client-relative anomaly</td>
+<td><code>MANUAL_DIAGNOSTIC_REVIEW</code></td>
+</tr>
+<tr>
+<td>High risk without a clear heuristic explanation</td>
+<td><code>HUMAN_REVIEW_BEFORE_EDIT</code></td>
+</tr>
+<tr>
+<td>Medium risk</td>
+<td><code>WATCHLIST_NO_IMMEDIATE_EDIT</code></td>
+</tr>
+<tr>
+<td>Lower risk</td>
+<td><code>MONITOR_NO_IMMEDIATE_EDIT</code></td>
+</tr>
+</tbody>
+</table>
+<p>These recommendations are investigation priorities, not editing instructions. For example, <code>CONTENT_REFRESH_REVIEW</code> means that an analyst should investigate whether a refresh may be appropriate. It does not mean that the page should be automatically rewritten.</p>
+<figure class="paper-figure"><a aria-label="Open Figure 5 full size" class="figure-link" href="assets/05_risk_value_matrix.png"><img alt="Risk and exposure matrix" decoding="async" loading="lazy" src="assets/05_risk_value_matrix.png"/></a><figcaption><strong>Figure 5. </strong>Risk and relative exposure review matrix</figcaption></figure>
+<p>The second axis in this matrix represents <strong>relative first-half impression exposure within a client</strong>. It is an operational visibility signal, not revenue, ROI, or financial value.</p>
+<p class="takeaway"><strong>Takeaway:</strong> Model risk determines review priority, while observable context helps decide what kind of human investigation may be useful.</p>
+<p class="principle-callout"><strong>Operating principle: Model prioritizes → human investigates → human decides.</strong></p>
+<hr/>
+<h2 class="section-heading" id="limitations">9. Limitations</h2>
+<p>This study has several important limitations.</p>
+<p>First, the target is a <strong>future-impression-decline proxy</strong>. It does not measure content quality and does not show whether a refresh or other intervention would causally improve performance.</p>
+<p>Second, <strong>March 2026 is the single primary evaluation month</strong>. Performance may change over time, and no completed temporal holdout is part of the final evidence used in this manuscript.</p>
+<p>Third, the final cohort contains <strong>34 clients</strong> with unequal page counts and different outcome prevalence. Client-disjoint validation reduces client leakage but does not eliminate client heterogeneity.</p>
+<p>Fourth, fold-level variability remains substantial: the Full-Signal Random Forest achieved <strong>74.6% mean Precision@100 with a 13.6% standard deviation</strong>.</p>
+<p>Fifth, client-relative features depend on current portfolio context. A scoring process needs enough same-client pages to compute those relative signals consistently.</p>
+<p>Finally, the model identifies statistical patterns in pre-outcome search-performance data. It does <strong>not</strong> predict Google's ranking algorithm, establish why a page declined, or prove that changing a high-risk page will improve later performance.</p>
+<p>Temporal validation, prospective monitoring, and eventually intervention-aware evaluation would be needed before stronger production claims.</p>
+<hr/>
+<h2 class="section-heading" id="conclusion">10. Conclusion</h2>
+<p>This study shows that pre-outcome search-performance signals can support a useful ranking of pages for future-decline review, but the credibility of that result depends heavily on how validation is designed. Under the primary client-disjoint evaluation, the Full-Signal Random Forest achieved <strong>74.6% mean Precision@100</strong>, materially above the <strong>35.2%</strong> Week-4 rule and directionally above the <strong>66.2%</strong> momentum-only Random Forest.</p>
+<p>The project therefore supports two conclusions. First, richer trend-shape and client-context features add ranking value beyond recent momentum, although the incremental gain is much smaller than the gap to the simple rule baseline. Second, random-row validation substantially overstates performance for the intended cross-client setting, so the lower grouped estimate is the more defensible headline result.</p>
+<p>The appropriate use is a constrained decision-support workflow: <strong>model prioritizes → human investigates → human decides</strong>. Further temporal and prospective validation would be required before making stronger production or intervention-effect claims.</p>
+<hr/>
+<h2 class="section-heading" id="reproducibility">11. Reproducibility</h2>
+<p>The final workflow is reproducible from the public repository with approved access to the FlyRank internship warehouse.</p>
+<ul>
+<li><strong>Repository:</strong> https://github.com/Dania-Yasir/flyrak-project</li>
+<li><strong>Dataset:</strong> <code>hf://datasets/FlyRank/internship-warehouse</code></li>
+<li><strong>Build:</strong> <code>v20260703</code></li>
+<li><strong>Random seed:</strong> <code>42</code></li>
+<li><strong>Validation:</strong> 5 client-disjoint folds</li>
+<li><strong>Feature window:</strong> March 1–15, 2026</li>
+<li><strong>Outcome window:</strong> March 16–31, 2026</li>
+<li><strong>Decline threshold:</strong> <code>-20%</code></li>
+<li><strong>Primary metric:</strong> Precision@100</li>
+</ul>
+<p>Key notebooks:</p>
+<ol>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w03_data_contract.ipynb" rel="noopener noreferrer" target="_blank"><code>w03_data_contract.ipynb</code></a> — data contract and prediction boundary</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w04_baseline_score.ipynb" rel="noopener noreferrer" target="_blank"><code>w04_baseline_score.ipynb</code></a> — transparent Week-4 rule baseline</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w05_model_training!.ipynb" rel="noopener noreferrer" target="_blank"><code>w05_model_training!.ipynb</code></a> — model-development experiments</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w05_model.ipynb" rel="noopener noreferrer" target="_blank"><code>w05_model.ipynb</code></a> — final Week-5 model comparison</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w06_validation_audit.ipynb" rel="noopener noreferrer" target="_blank"><code>w06_validation_audit.ipynb</code></a> — honest validation and leakage audit</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/w07_action_playbook.ipynb" rel="noopener noreferrer" target="_blank"><code>w07_action_playbook.ipynb</code></a> — final queue, metrics, figures, and action policy</li>
+<li><a href="https://github.com/Dania-Yasir/flyrak-project/blob/main/work/notebooks/capstone.ipynb" rel="noopener noreferrer" target="_blank"><code>capstone.ipynb</code></a> — concise capstone narrative</li>
+</ol>
+<p>The final deterministic rerun sorts the monthly model frame by <code>client_id</code> and <code>content_id</code> after aggregation before validation. This makes the reported Random Forest results repeatable without changing the data definition, target, features, or model settings.</p>
+<hr/>
+<h2 class="section-heading" id="acknowledgments-and-data-credit">12. Acknowledgments and Data Credit</h2>
+<p>This project was completed as part of the <strong>FlyRank ML Internship</strong>. The analysis uses the approved FlyRank internship warehouse release and reports only aggregated or pseudonymized results suitable for a public repository.</p>
+<p>Data source: <strong>FlyRank Internship Warehouse</strong><br/>
+Dataset reference: <code>hf://datasets/FlyRank/internship-warehouse</code><br/>
+Project repository: https://github.com/Dania-Yasir/flyrak-project</p>
+<hr/>
+<h2 class="section-heading" id="references">References</h2>
+<ol>
+<li><p>Cai, H., &amp; Ye, H.-J. (2025). <strong>Understanding the Limits of Deep Tabular Methods with Temporal Shift.</strong> <em>Proceedings of the 42nd International Conference on Machine Learning</em>, PMLR 267, 6366–6386. https://proceedings.mlr.press/v267/cai25j.html</p>
+</li>
+<li><p>Gardner, J., Popovic, Z., &amp; Schmidt, L. (2023). <strong>Benchmarking Distribution Shift in Tabular Data with TableShift.</strong> <em>Advances in Neural Information Processing Systems 36, Datasets and Benchmarks Track</em>. https://proceedings.neurips.cc/paper_files/paper/2023/hash/a76a757ed479a1e6a5f8134bea492f83-Abstract-Datasets_and_Benchmarks.html</p>
+</li>
+<li><p>Heuton, K., Muench, F., Shrestha, S., Stopka, T. J., &amp; Hughes, M. C. (2025). <strong>Decision-aware Training of Spatiotemporal Forecasting Models to Select a Top-K Subset of Sites for Intervention.</strong> <em>Proceedings of the 42nd International Conference on Machine Learning</em>, PMLR 267, 23136–23154. https://proceedings.mlr.press/v267/heuton25a.html</p>
+</li>
+<li><p>Feng, J., Rahrooh, A., &amp; Bui, A. (2025). <strong>Error Profiling of Machine Learning Models: An Exploratory Visualization.</strong> <em>Proceedings of the 10th Machine Learning for Healthcare Conference</em>, PMLR 298. https://proceedings.mlr.press/v298/feng25a.html</p>
+</li>
+</ol>
+
+      <footer class="paper-footer">
+        <p><strong>Data credit:</strong> FlyRank Internship Warehouse, build <code>v20260703</code>. Public results are aggregated or pseudonymized.</p>
+        <p>Source code, notebooks, and reproducibility details are available in the project repository.</p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
