@@ -1,0 +1,28 @@
+{
+  "queue": {
+    "rows": 61795,
+    "clients": 34,
+    "overall_decline_rate": 0.3240229792054373
+  },
+  "validated_model": {
+    "name": "Random Forest \u2014 Full Signal",
+    "precision_at_100_mean": 0.768,
+    "precision_at_100_std": 0.144,
+    "momentum_only_precision_at_100": 0.668,
+    "week4_rule_precision_at_100": 0.352
+  },
+  "review_capture": {
+    "top_10pct": 0.20061928781900815,
+    "top_20pct": 0.3458023273235779,
+    "top_30pct": 0.48539179943065475
+  },
+  "risk_deciles": {
+    "lowest_decile_decline_rate": 0.09129168015539009,
+    "highest_decile_decline_rate": 0.6511056511056511
+  },
+  "client_generalization": {
+    "clients_evaluated": 34,
+    "clients_with_positive_uplift": 24,
+    "median_uplift_pp": 18.059003845427235
+  }
+}
