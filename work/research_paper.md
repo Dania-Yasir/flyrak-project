@@ -51,7 +51,7 @@ The analysis uses the approved **FlyRank ML Internship warehouse release, build 
 
 The full warehouse contains approximately **78.8 million daily performance rows**, but the final experiment uses only the **March 2026** partition. After March aggregation, the study starts with **331,437 page-level candidates**. Of these, **68,288** have complete Google Search Console coverage for the March 1–15 feature window, and **61,795** also have complete coverage for the March 16–31 outcome window. The final modeling cohort spans **34 pseudonymized clients**.
 
-### 2.1 Analysis windows
+### 3.1 Analysis windows
 
 - **Feature window:** March 1–15, 2026
 - **Outcome window:** March 16–31, 2026
@@ -61,7 +61,7 @@ The full warehouse contains approximately **78.8 million daily performance rows*
 
 The warehouse size and the modeling cohort should not be conflated. The model is not trained directly on all 78.8 million warehouse rows. Those rows describe the underlying daily-performance warehouse; the final experiment evaluates 61,795 March page-level examples after aggregation and coverage filtering.
 
-### 2.2 Information boundary and exclusions
+### 3.2 Information boundary and exclusions
 
 Only information available by the end of March 15 is permitted as model input. The following are excluded from the model feature set:
 
