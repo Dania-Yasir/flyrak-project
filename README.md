@@ -441,7 +441,8 @@ I would not treat one aggregate score as a permanent production accuracy number.
 
 ## Demo Video
 
-The **3–5 minute live demo video** for Assignment 8.1 will be added here after recording.
+The **3–5 minute live demo video** 
+https://www.loom.com/share/b8713e96d91b4ca399095adebb4f1ce6
 
 ---
 
