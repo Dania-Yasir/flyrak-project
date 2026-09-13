@@ -1,116 +1,450 @@
-# FlyRank ML Internship — Starter Repo
+# Content Decline Ranking for Human Review
 
-**Applied Search Intelligence: Google Search Ranking & Discoverability**
+**FlyRank ML Internship Capstone — Dania Yasir**
 
-This is the starting point for the FlyRank ML Internship. You **clone it into your own public
-repo** (one click — *Use this template*), build everything there, and submit that repo URL on
-each assignment in your portal — it's your workspace, your submission, and your portfolio all
-at once. The rhythm is simple: do the work, commit it, submit on the card. Done.
+This project builds a machine-learning ranking workflow that helps content and SEO analysts decide **which pages to review first** when review capacity is limited.
 
-Everything here runs on a small **anonymized** slice of real FlyRank search data. No credentials,
-no private client data, no setup headaches.
+The system uses search-performance signals available before a prediction boundary to rank pages by risk of a later decline in Google Search impressions. It is intentionally designed as **decision support**, not as an automatic content-editing system.
 
-> **New here?** Two reads: **[SETUP.md](SETUP.md)** (GitHub, Colab, and data access — ten
-> minutes, with every silent pitfall flagged), then **[GUIDE.md](GUIDE.md)** (every file
-> explained, what to edit vs. leave alone, and where your own work goes — five minutes).
+> **Operating principle:** Model prioritizes → human investigates → human decides.
 
 ---
 
-## Quickstart — first win in 2 minutes
+## What this project does
 
-The fastest path is Google Colab (one click, zero install). Open Notebook 1 and run all cells:
+For each eligible content page, the workflow:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dania-Yasir/flyrak-project/blob/main/notebooks/01_first_look_and_discovery.ipynb)
- **Week 1 — Run it, then discover a real truth yourself**
+1. Reads approved pseudonymized search-performance data.
+2. Builds features using only information available in the first half of March 2026.
+3. Defines a later impression-decline proxy using the second half of March.
+4. Trains and evaluates a Random Forest ranking model.
+5. Validates it with **client-disjoint cross-validation** so complete clients are held out.
+6. Produces risk scores and a ranked human-review policy.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dania-Yasir/flyrak-project/blob/main/notebooks/02_your_first_readable_model.ipynb)
- **Week 2 — The model is just a rule you can read**
+The goal is not to predict Google's ranking algorithm and not to prove that editing a page will improve performance.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Dania-Yasir/flyrak-project/blob/main/notebooks/03_working_with_the_full_release.ipynb)
- **Weeks 3+ — The full release (~79M rows) via DuckDB, no download needed** — hosted at
- [`FlyRank/internship-warehouse`](https://huggingface.co/datasets/FlyRank/internship-warehouse) (gated: request access + accept the data-use terms, approval is instant)
+The goal is narrower:
 
-### Prefer local?
-
-```bash
-git clone <this-repo-url>
-cd flyrank-ml-internship-starter
-pip install -r requirements.txt          # or: uv pip install -r requirements.txt
-python scripts/run_all.py
-```
-
-That runs the whole pipeline on the bundled sample and writes results to `outputs/`.
+**Put a denser concentration of likely decline cases near the top of an analyst's review queue.**
 
 ---
 
-## What you get
+## Who it is for
 
-| Path | What it is |
-|---|---|
-| `notebooks/` | Week 1–2 **first-win notebooks** (Colab-ready). Start here. |
-| `scripts/01–05` + `run_all.py` | The runnable reference pipeline: prepare → baseline → train → evaluate → PDF. |
-| `data/raw/content_refresh_anonymized.csv` | The anonymized starter dataset (~30k pages). |
-| `outputs/` | Example outputs so you can see the **target shape** (`model_report.md`, `refresh_queue_sample.csv`, `charts/`). |
-| `work/` | **Your space.** Lane experiments and your capstone live here — see `work/README.md`. |
-| `docs/` | The core docs + the data dictionary (see below). |
+This project is useful for:
 
-### Read these (in `docs/`)
-
-1. **`ml-core-foundation-framework.md`** — the first-principles map of ML as a whole system. The backbone of the live sessions.
-2. **`ml-intern-dataset-and-lane-guide.md`** — how to use the data safely, the capstone workflow, and the analysis "lanes" you can pick from.
-3. **`intern-free-tooling-guide.md`** — the zero-budget tool stack (Python, Colab, free AI assistants). You never need to pay for anything.
-4. **`data-dictionary.md`** — all 44 columns: meaning, scale, and gotchas. Keep it open while you work.
+* SEO and content analysts managing large page portfolios.
+* Teams that cannot manually inspect every page regularly.
+* ML practitioners interested in leakage-aware ranking and group-based validation.
+* Reviewers who want an example of turning an ML score into a human-in-the-loop workflow.
 
 ---
 
-## The pipeline (what `run_all.py` does)
+## Project question
+
+> Can search-performance signals available in the first half of a month help prioritize which content pages should be reviewed first for possible future decline?
+
+The unit of analysis is one pseudonymized content page within one pseudonymized client.
+
+The final model returns a risk score used to prioritize review.
+
+---
+
+## Data and prediction boundary
+
+The final experiment uses the approved **FlyRank ML Internship warehouse release, build `v20260703`**, accessed through DuckDB and Hugging Face.
+
+* Main table: `fact_content_daily_performance`
+* Feature window: **March 1–15, 2026**
+* Outcome window: **March 16–31, 2026**
+* Final modeling cohort: **61,795 pages**
+* Pseudonymized clients: **34**
+* Observed decline rate: **32.4%**
+* Decline proxy: average daily impressions in the outcome window are more than **20% lower** than in the feature window
+
+Only pre-outcome information is allowed into the model.
+
+Client/content IDs, future-window fields, the target, and target-derived fields are excluded from model inputs.
+
+---
+
+## Architecture
 
 ```text
-01_prepare_features.py   clean + build the feature vector, define the label
-02_baseline_score.py     a transparent hand-rule "fix this first" score
-03_train_model.py        logistic regression, decision tree, random forest (client-holdout split)
-04_evaluate_and_export.py  ranked queue + charts + Markdown report
-05_build_pdf_report.py   a shareable PDF summary
+FlyRank Approved Warehouse
+        |
+        v
+March 2026 Search Data
+        |
+        v
+Feature Window
+March 1–15
+        |
+        v
+21 Pre-Outcome Features
+        |
+        v
+Random Forest
+Full-Signal Model
+        |
+        v
+5-Fold Client-Disjoint Validation
+        |
+        v
+Risk Score
+        |
+        v
+Ranked Review Queue
+        |
+        v
+Human Analyst Review
+        |
+        v
+Investigate / Watch / Monitor
+
+
+Outcome Window
+March 16–31
+        |
+        v
+Evaluation Only
 ```
 
-On the bundled sample, the learned model clearly beats the hand-written rule at picking the right
-pages to review first (**Precision@50 ≈ 0.24 → 0.74**; the model number can land 0.68–0.74
-depending on library versions — the ~3x lift is the point). The notebooks compute these numbers
-live, so they always reflect the current data and environment.
+The second-half outcome window is used for evaluation only.
 
-**Teaching point:** the model is the capstone, but the *workflow* is the lesson —
-`problem framing → data cleaning → baseline → first model → evaluation → explainable recommendation`.
+It is **not** used as model input.
 
 ---
 
-## Data safety (read `DATA_USE.md`)
+## Key design decisions
 
-- Only the small **anonymized** CSV ships here — no client names, domains, URLs, titles, or keywords.
-- **Never** add raw private client data to this repo or your fork. Need more data? Request an approved
-  release from your mentor — never export it yourself.
-- Don't paste client data into third-party AI tools.
-- Frame every result as **observed / measured / directional / decision-support** — never
-  "I predicted Google's algorithm."
+### 1. Treat the task as ranking, not generic classification
 
-The `.gitignore` blocks datasets by default, and CI fails any commit that includes a dataset.
+The operational question is which pages should appear near the top of a limited review queue.
 
----
+For that reason, the primary metric is **Precision@100**, not overall accuracy.
 
-## Assignments & schedule
+### 2. Hold out complete clients
 
-Weekly assignments, live events, and the capstone live on **your portal board** (your
-enrollment email has your access link). This repo is the shared technical foundation they all
-build on — and the `skills/` folder here is the instruction library for your AI assistant
-(start at [skills/README.md](skills/README.md)).
+Random-row validation allowed client-specific patterns to appear on both the training and validation sides and produced an optimistic result.
 
-**First time with GitHub?** You need exactly four things (full walkthrough: [SETUP.md](SETUP.md)):
-1. A free account at github.com.
-2. Your own copy of this repo: **Use this template → Create a new repository** → public.
-   (One click — brings the notebooks, `work/`, and the CI leak-guard with it.)
-3. In Colab: *File → Save a copy in GitHub* → pick your copy, branch `main` (Colab handles auth).
-4. That's your submission repo — share its **github.com/you/your-repo** URL with Assignment 1
-   (never a colab.research.google.com or drive.google.com link).
+The final evaluation therefore uses **5-fold client-disjoint grouped validation**.
+
+### 3. Keep a stronger simplicity check
+
+In addition to the original Week-4 rule baseline, the final evaluation includes a **momentum-only Random Forest**.
+
+This tests whether the additional contextual and trend-shape features add value beyond recent impression movement alone.
 
 ---
 
-*Track leads: Mirza Ašćerić (ML) · Hole (data engineering). Code under MIT (see `LICENSE`); data under `DATA_USE.md`.*
+## V2 / Final Evaluation Results
+
+All three methods below are evaluated on the same target and the same client-disjoint folds.
+
+| Method                          | Mean Precision@100 |    SD |
+| ------------------------------- | -----------------: | ----: |
+| **Random Forest — Full Signal** |          **74.6%** | 13.6% |
+| Random Forest — Momentum Only   |              66.2% | 12.8% |
+| Week-4 Rule Baseline            |              35.2% |  6.4% |
+
+The final full-signal model improves mean Precision@100 by **39.4 percentage points** over the Week-4 rule baseline.
+
+Compared with the stronger momentum-only Random Forest, the improvement is **8.4 percentage points**.
+
+A key validation finding is that the same full model reached **90.0% Precision@100** under random-row cross-validation but **74.6%** under client-disjoint validation.
+
+The lower client-disjoint score is the primary result because it better matches the intended use case of generalizing to client groups not seen during training.
+
+### Additional final checks
+
+* Top 10% of the ranked queue captures **20.1%** of observed decline cases.
+* Top 20% captures **34.6%**.
+* Top 30% captures **48.5%**.
+* Lowest-risk decile observed decline rate: **9.1%**.
+* Highest-risk decile observed decline rate: **65.1%**.
+* **24 of 34 clients** showed positive high-risk concentration in the final client-level summary.
+
+The complete evidence and interpretation are documented in:
+
+[`work/capstone_report.md`](work/capstone_report.md)
+
+---
+
+## Repository guide
+
+| Path                                        | Purpose                                                     |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `work/notebooks/capstone.ipynb`             | Concise capstone narrative and final results                |
+| `work/notebooks/w03_data_contract.ipynb`    | Data contract, cohort construction, and prediction boundary |
+| `work/notebooks/w04_baseline_score.ipynb`   | Transparent rule baseline                                   |
+| `work/notebooks/w05_model_training!.ipynb`  | Model development and feature experiments                   |
+| `work/notebooks/w06_validation_audit.ipynb` | Client-disjoint validation and leakage audit                |
+| `work/notebooks/w07_action_playbook.ipynb`  | Final queue, metrics, and human-review policy               |
+| `work/outputs/w07_paper_metrics.json`       | Machine-readable final metrics                              |
+| `work/capstone_report.md`                   | Full final model-development and validation report          |
+| `work/research_paper.md`                    | Research-paper version of the project                       |
+| `DATA_USE.md`                               | Data-use and privacy rules                                  |
+| `SETUP.md`                                  | Detailed GitHub, Colab, and Hugging Face setup guidance     |
+
+---
+
+## Setup — Recommended Route: Google Colab
+
+This is the easiest route for a new reviewer because it does not require a local Python installation.
+
+### Step 1 — Get the repository
+
+Open:
+
+`https://github.com/Dania-Yasir/flyrak-project`
+
+### Step 2 — Request access to the FlyRank dataset
+
+Create a free Hugging Face account and request or accept access to:
+
+`FlyRank/internship-warehouse`
+
+Then create a **Read** access token.
+
+Do not commit the token to GitHub or type it into a public notebook cell.
+
+See `SETUP.md` for the detailed data-access instructions.
+
+### Step 3 — Open the final notebook in Colab
+
+Open:
+
+`work/notebooks/capstone.ipynb`
+
+Or use this Colab link:
+
+https://colab.research.google.com/github/Dania-Yasir/flyrak-project/blob/main/work/notebooks/capstone.ipynb
+
+### Step 4 — Full technical reproduction
+
+For the complete workflow, run these notebooks in order:
+
+1. `work/notebooks/w03_data_contract.ipynb`
+2. `work/notebooks/w04_baseline_score.ipynb`
+3. `work/notebooks/w05_model_training!.ipynb`
+4. `work/notebooks/w06_validation_audit.ipynb`
+5. `work/notebooks/w07_action_playbook.ipynb`
+
+When a notebook requests Hugging Face authentication, provide the Read token through the secure prompt or Colab Secrets.
+
+Do not hard-code the token.
+
+---
+
+## Local setup
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Dania-Yasir/flyrak-project.git
+cd flyrak-project
+```
+
+### 2. Create a virtual environment
+
+#### Windows PowerShell
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+#### macOS / Linux
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+pip install jupyter
+```
+
+Core dependencies include:
+
+* pandas
+* NumPy
+* scikit-learn
+* matplotlib
+* DuckDB
+* ReportLab
+* huggingface_hub
+
+### 4. Authenticate for the gated dataset
+
+Accept the dataset terms in Hugging Face first.
+
+Create a **Read** token and provide it securely when the notebooks request access.
+
+### 5. Launch Jupyter
+
+```bash
+jupyter lab
+```
+
+Run the technical notebooks in the order listed above.
+
+The final deterministic workflow uses:
+
+* Random seed: `42`
+* Validation: `5` client-disjoint folds
+* Feature window: March 1–15, 2026
+* Outcome window: March 16–31, 2026
+* Decline threshold: `-20%`
+
+---
+
+## Usage example
+
+The project is intended to produce a **review priority**, not an automatic edit decision.
+
+The final policy uses the within-fold risk percentile:
+
+| Risk percentile | Operational use     |
+| --------------- | ------------------- |
+| `>= 0.80`       | Active human review |
+| `0.50–0.79`     | Watchlist           |
+| `< 0.50`        | Monitor             |
+
+For a high-risk page, observable pre-outcome signals can route the page to one of several investigation types:
+
+* `CONTENT_REFRESH_REVIEW`
+* `SERP_AND_INTENT_REVIEW`
+* `TITLE_META_CTR_REVIEW`
+* `MANUAL_DIAGNOSTIC_REVIEW`
+* `HUMAN_REVIEW_BEFORE_EDIT`
+
+These labels mean:
+
+**review and investigate**
+
+not:
+
+**automatically rewrite this page**
+
+---
+
+## Limitations
+
+This project has several important limitations.
+
+### 1. Proxy target
+
+The target measures future impression decline.
+
+It does not directly measure content quality or prove that a page should be refreshed.
+
+### 2. Coverage selection
+
+Only **61,795 of 331,437** March page-level candidates met the final complete-coverage requirements.
+
+The results should therefore not automatically be generalized to every page in the warehouse.
+
+### 3. Single primary month
+
+March 2026 is the main completed experiment.
+
+A completed next-month temporal holdout is not part of the final evidence.
+
+### 4. Limited client count
+
+The final cohort contains **34 pseudonymized clients**.
+
+### 5. Unequal client sizes
+
+Client-disjoint folds can differ substantially in page count and target prevalence.
+
+### 6. Client heterogeneity
+
+Performance is not equally strong across all held-out client groups.
+
+The full model's fold-level Precision@100 standard deviation is **13.6%**.
+
+### 7. Portfolio-context dependency
+
+Client-relative features assume that enough same-client pages are available to define current portfolio context.
+
+### 8. No causal interpretation
+
+Feature importance and model scores show associations useful for ranking.
+
+They do not explain why a page declined.
+
+### 9. No Google-algorithm claim
+
+This model does **not** predict Google's ranking algorithm.
+
+### 10. No intervention-effect claim
+
+The experiment does not prove that refreshing or rewriting a high-risk page will improve future performance.
+
+Before making stronger production claims, the project would benefit from additional **temporal holdout and prospective validation**.
+
+---
+
+## Data safety
+
+Only approved pseudonymized internship data is used.
+
+Public project outputs do not include:
+
+* Client names
+* Domains
+* URLs
+* Private search queries
+* Access credentials
+
+Do not commit raw private client data or Hugging Face tokens to this repository.
+
+See `DATA_USE.md` for the full rules.
+
+---
+
+## AI Transparency
+
+I used **ChatGPT as an AI assistant** during this project for brainstorming, code and debugging support, reviewing implementation choices, and improving documentation.
+
+I treated AI-generated suggestions as drafts rather than automatically correct answers.
+
+I personally ran and reviewed the project notebooks and outputs, checked the prediction boundary and leakage controls, and verified the final metrics reported here against the repository evidence.
+
+---
+
+## What I would build next
+
+The next validation step would be a true **temporal holdout** using a later month.
+
+After that, I would test the ranked queue prospectively and monitor ranking quality per client over time.
+
+I would not treat one aggregate score as a permanent production accuracy number.
+
+---
+
+## Final project artifacts
+
+* [Final Capstone Report](work/capstone_report.md)
+* [Capstone Notebook](work/notebooks/capstone.ipynb)
+* [Final Metrics](work/outputs/w07_paper_metrics.json)
+* [Research Paper](work/research_paper.md)
+* [Setup Guide](SETUP.md)
+
+---
+
+## Demo Video
+
+The **3–5 minute live demo video** for Assignment 8.1 will be added here after recording.
+
+---
+
+**Author:** Dania Yasir
+**Project:** FlyRank ML Internship Capstone
+**Repository:** Dania-Yasir/flyrak-project
